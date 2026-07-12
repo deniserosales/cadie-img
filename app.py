@@ -251,7 +251,6 @@ def _prepare_cache(
     files: list,
     canvas_width: int,
     canvas_height: int,
-    padding_pct: float,
 ):
     _hidden_status = gr.update(value="", visible=False)
     if not files:
@@ -259,7 +258,7 @@ def _prepare_cache(
     try:
         img = Image.open(files[0])
         bgremoved, _ = remove_background(img)
-        centered = center_on_canvas(bgremoved, int(canvas_width), int(canvas_height), padding_pct / 100)
+        centered = center_on_canvas(bgremoved, int(canvas_width), int(canvas_height))
         return bgremoved, centered, _preview_on_white(centered), _hidden_status
     except Exception:
         return None, None, None, _hidden_status
@@ -269,12 +268,11 @@ def _recenter_preview(
     bgremoved: Image.Image | None,
     canvas_width: int,
     canvas_height: int,
-    padding_pct: float,
 ) -> tuple[Image.Image | None, Image.Image | None]:
     if bgremoved is None:
         return None, None
     try:
-        centered = center_on_canvas(bgremoved, int(canvas_width), int(canvas_height), padding_pct / 100)
+        centered = center_on_canvas(bgremoved, int(canvas_width), int(canvas_height))
         return centered, _preview_on_white(centered)
     except Exception:
         return None, None
@@ -300,7 +298,6 @@ def process_batch(
     canvas_height: int,
     fmt: str,
     quality: int,
-    padding_pct: float,
     brightness: float,
     contrast: float,
     saturation: float,
@@ -322,7 +319,7 @@ def process_batch(
             before_gallery.append((original.copy(), Path(file_path).name))
             img, _ = remove_background(original)
             img = enhance_image(img, brightness, contrast, saturation, sharpness)
-            img = center_on_canvas(img, int(canvas_width), int(canvas_height), padding_pct / 100)
+            img = center_on_canvas(img, int(canvas_width), int(canvas_height))
             stem = Path(file_path).stem
             out_name = f"{stem}_nobg.{ext}"
             out_path = os.path.join(tmpdir, out_name)
@@ -399,11 +396,6 @@ def _build_ui() -> gr.Blocks:
                         minimum=1, maximum=100, value=85, step=1, label="WebP quality"
                     )
 
-                padding_slider = gr.Slider(
-                    minimum=50, maximum=90, value=75, step=1,
-                    label="Product size in canvas (%)",
-                )
-
                 gr.HTML(_label(_ICO_ADJUST, "Image adjustments"), elem_classes=["bp-label-block"])
                 with gr.Row():
                     with gr.Column(scale=1):
@@ -476,7 +468,7 @@ def _build_ui() -> gr.Blocks:
             queue_gallery,
         ]
 
-        def _on_upload(new_files, existing, bgr_cache, cen_cache, canvas_w, canvas_h, padding_pct):
+        def _on_upload(new_files, existing, bgr_cache, cen_cache, canvas_w, canvas_h):
             old_first = existing[0] if existing else None
             existing = list(existing or [])
             seen = set(existing)
@@ -488,7 +480,7 @@ def _build_ui() -> gr.Blocks:
             # Skip rembg when the first file hasn't changed
             new_first = existing[0] if existing else None
             if new_first != old_first:
-                bgr, cen, prev, st = _prepare_cache(existing, canvas_w, canvas_h, padding_pct)
+                bgr, cen, prev, st = _prepare_cache(existing, canvas_w, canvas_h)
             else:
                 bgr, cen = bgr_cache, cen_cache
                 prev = _preview_on_white(cen) if cen else None
@@ -507,7 +499,7 @@ def _build_ui() -> gr.Blocks:
                 gr.update(value=[], visible=False),
             )
 
-        def _on_gallery_delete(evt: gr.EventData, files, bgr_cache, cen_cache, canvas_w, canvas_h, padding_pct):
+        def _on_gallery_delete(evt: gr.EventData, files, bgr_cache, cen_cache, canvas_w, canvas_h):
             # Note: uses the base EventData type (not gr.DeletedFileData) —
             # Gradio 6.19's DeletedFileData constructor crashes because the
             # frontend payload is {file, index} but FileData(**data) expects
@@ -525,13 +517,13 @@ def _build_ui() -> gr.Blocks:
             if not removed_first:
                 # Preview cache still reflects files[0], which hasn't moved.
                 return files, bgr_cache, cen_cache, gr.update(), gr.update(), gallery_update
-            bgr, cen, prev, st = _prepare_cache(files, canvas_w, canvas_h, padding_pct)
+            bgr, cen, prev, st = _prepare_cache(files, canvas_w, canvas_h)
             return files, bgr, cen, prev, st, gallery_update
 
         file_input.upload(
             fn=_on_upload,
             inputs=[file_input, accumulated_files, bgremoved_state, centered_state,
-                    width_in, height_in, padding_slider],
+                    width_in, height_in],
             outputs=_upload_outs,
         )
         file_input.clear(fn=_on_clear, outputs=_upload_outs)
@@ -539,19 +531,15 @@ def _build_ui() -> gr.Blocks:
         queue_gallery.delete(
             fn=_on_gallery_delete,
             inputs=[accumulated_files, bgremoved_state, centered_state,
-                    width_in, height_in, padding_slider],
+                    width_in, height_in],
             outputs=[accumulated_files, bgremoved_state, centered_state,
                      live_preview, status_out, queue_gallery],
         )
 
-        for component, event in [
-            (padding_slider, "release"),
-            (width_in, "change"),
-            (height_in, "change"),
-        ]:
-            getattr(component, event)(
+        for component in [width_in, height_in]:
+            component.change(
                 fn=_recenter_preview,
-                inputs=[bgremoved_state, width_in, height_in, padding_slider],
+                inputs=[bgremoved_state, width_in, height_in],
                 outputs=[centered_state, live_preview],
             )
 
@@ -566,12 +554,12 @@ def _build_ui() -> gr.Blocks:
         )
 
         def run(
-            files, width, height, fmt, quality, padding,
+            files, width, height, fmt, quality,
             brightness, contrast, saturation, sharpness,
             progress=gr.Progress(),
         ):
             zip_p, raw_status, before, after, individuals = process_batch(
-                files, width, height, fmt, quality, padding,
+                files, width, height, fmt, quality,
                 brightness, contrast, saturation, sharpness,
                 progress,
             )
@@ -591,7 +579,7 @@ def _build_ui() -> gr.Blocks:
         run_btn.click(
             fn=run,
             inputs=[
-                accumulated_files, width_in, height_in, fmt_radio, quality_slider, padding_slider,
+                accumulated_files, width_in, height_in, fmt_radio, quality_slider,
                 brightness_slider, contrast_slider, saturation_slider, sharpness_slider,
             ],
             outputs=[

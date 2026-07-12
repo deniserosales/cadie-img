@@ -1,18 +1,20 @@
 from PIL import Image
 
+from core.presets import PADDING_RATIO
+
 
 def center_on_canvas(
     image: Image.Image,
     canvas_width: int = 1080,
     canvas_height: int = 1080,
-    padding: float = 0.75,
 ) -> Image.Image:
     """
-    Crop to content bounding box, scale to fit within padding*canvas preserving
+    Crop to content bounding box, scale to fit within the padded area preserving
     aspect ratio, then paste centered on a transparent canvas.
 
-    padding: fraction of canvas dimensions used as the fit area (0.9 = 90%,
-    leaves ~5% margin on each side). Returns RGBA of exactly (canvas_width, canvas_height).
+    The fit area is canvas dimensions * (1 - 2 * PADDING_RATIO), leaving
+    PADDING_RATIO as a margin on each side. Returns RGBA of exactly
+    (canvas_width, canvas_height).
     """
     image = image.convert("RGBA")
 
@@ -20,8 +22,9 @@ def center_on_canvas(
     if bbox:
         image = image.crop(bbox)
 
-    max_w = round(canvas_width * padding)
-    max_h = round(canvas_height * padding)
+    fit_fraction = 1 - 2 * PADDING_RATIO
+    max_w = round(canvas_width * fit_fraction)
+    max_h = round(canvas_height * fit_fraction)
 
     scale = min(max_w / image.width, max_h / image.height)
     new_w = round(image.width * scale)
