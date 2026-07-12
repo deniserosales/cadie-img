@@ -10,9 +10,13 @@ def crop_and_frame(
 ) -> Image.Image:
     """
     Crop the original image to a square region centered on bbox with a
-    PADDING_RATIO margin on each side, then resize to
-    (canvas_size, canvas_size). Operates on the original photo directly —
-    the background is preserved exactly as shot, never removed or replaced.
+    PADDING_RATIO margin on each side. Operates on the original photo
+    directly — the background is preserved exactly as shot, never removed
+    or replaced.
+
+    Only downscales to (canvas_size, canvas_size) when the crop is larger
+    than that; a crop already at or below canvas_size keeps its native
+    resolution, since upscaling only degrades quality without improving it.
 
     If bbox is None (nothing segmented), the whole image is treated as the
     content. If the ideal square would spill past the image edges, the crop
@@ -33,17 +37,16 @@ def crop_and_frame(
     fit_fraction = 1 - 2 * PADDING_RATIO
     side = max(content_w, content_h) / fit_fraction
     # The photo itself caps how much margin is available — cap instead of
-    # inventing pixels beyond its edges.
-    side = min(side, img_w, img_h)
+    # inventing pixels beyond its edges. Rounded to an int up front so the
+    # crop box below is exactly square, not off-by-one from independent
+    # rounding of each edge.
+    side = round(min(side, img_w, img_h))
 
-    crop_left = max(0, min(cx - side / 2, img_w - side))
-    crop_upper = max(0, min(cy - side / 2, img_h - side))
-    crop_box = (
-        round(crop_left),
-        round(crop_upper),
-        round(crop_left + side),
-        round(crop_upper + side),
-    )
+    crop_left = round(max(0, min(cx - side / 2, img_w - side)))
+    crop_upper = round(max(0, min(cy - side / 2, img_h - side)))
+    crop_box = (crop_left, crop_upper, crop_left + side, crop_upper + side)
 
     cropped = image.crop(crop_box)
-    return cropped.resize((canvas_size, canvas_size), Image.LANCZOS)
+    if cropped.width > canvas_size:
+        return cropped.resize((canvas_size, canvas_size), Image.LANCZOS)
+    return cropped

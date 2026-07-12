@@ -9,7 +9,7 @@ from PIL import Image
 from core.background_remover import detect_content_bbox
 from core.composer import crop_and_frame
 from core.enhancer import enhance_image
-from core.presets import WEBP_METHOD, WEBP_QUALITY
+from core.presets import WEBP_LOSSLESS, WEBP_METHOD, WEBP_QUALITY
 from core.zipper import pack_to_zip
 
 # ── Bluppimart design system ───────────────────────────────────────────────────
@@ -290,17 +290,25 @@ def process_batch(
         progress(i / total, desc=f"Processing image {i + 1} of {total}…")
         try:
             original = Image.open(file_path)
+            icc_profile = original.info.get("icc_profile")
             before_gallery.append((original.copy(), Path(file_path).name))
             bbox = detect_content_bbox(original)
             img = crop_and_frame(original, bbox)
             img = enhance_image(img, brightness, contrast, saturation, sharpness)
+            if icc_profile:
+                # Carried on img.info so pack_to_zip can reuse it below
+                # without needing its own icc_profile parameter.
+                img.info["icc_profile"] = icc_profile
             stem = Path(file_path).stem
             out_name = f"{stem}_framed.{ext}"
             out_path = os.path.join(tmpdir, out_name)
             save_kwargs: dict = {"format": fmt.upper()}
+            if icc_profile:
+                save_kwargs["icc_profile"] = icc_profile
             if fmt.upper() == "WEBP":
                 save_kwargs["quality"] = WEBP_QUALITY
                 save_kwargs["method"] = WEBP_METHOD
+                save_kwargs["lossless"] = WEBP_LOSSLESS
             img.save(out_path, **save_kwargs)
             individual_paths.append(out_path)
             after_gallery.append((img, out_name))
