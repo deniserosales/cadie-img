@@ -46,17 +46,15 @@ single-purpose modules under `core/`:
 
 - `background_remover.py` — removes the background via `rembg` and cleans up
   alpha-mask edges.
-- `composer.py` — crops to content, centers the piece on a padded,
-  transparent canvas, and composites its drop shadow underneath.
-- `shadow.py` — generates an RGBA drop-shadow layer from a piece's alpha
-  mask.
+- `composer.py` — crops to content and centers the piece on a padded,
+  transparent canvas.
 - `resizer.py` — resizes an image to target dimensions, with or without
   preserving aspect ratio.
 - `enhancer.py` — applies brightness/contrast/saturation/sharpness
   adjustments.
 - `zipper.py` — packs processed images into a downloadable ZIP archive.
-- `presets.py` — visual style constants (padding ratio, shadow
-  offset/blur/opacity, WebP quality/method) shared by the pipeline above.
+- `presets.py` — visual style constants (padding ratio, WebP
+  quality/method) shared by the pipeline above.
 
 ## Project context
 
