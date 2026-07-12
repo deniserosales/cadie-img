@@ -57,7 +57,8 @@ single-purpose modules under `core/`:
   adjustments.
 - `zipper.py` — packs processed images into a downloadable ZIP archive.
 - `presets.py` — visual style constants (background color, padding ratio,
-  shadow offset/blur/opacity) shared by the pipeline above.
+  shadow offset/blur/opacity, WebP quality/method) shared by the pipeline
+  above.
 
 ## Project context
 

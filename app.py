@@ -9,6 +9,7 @@ from PIL import Image
 from core.background_remover import remove_background
 from core.composer import center_on_canvas
 from core.enhancer import enhance_image
+from core.presets import WEBP_METHOD, WEBP_QUALITY
 from core.zipper import pack_to_zip
 
 # ── Bluppimart design system ───────────────────────────────────────────────────
@@ -297,7 +298,6 @@ def process_batch(
     canvas_width: int,
     canvas_height: int,
     fmt: str,
-    quality: int,
     brightness: float,
     contrast: float,
     saturation: float,
@@ -325,7 +325,8 @@ def process_batch(
             out_path = os.path.join(tmpdir, out_name)
             save_kwargs: dict = {"format": fmt.upper()}
             if fmt.upper() == "WEBP":
-                save_kwargs["quality"] = int(quality)
+                save_kwargs["quality"] = WEBP_QUALITY
+                save_kwargs["method"] = WEBP_METHOD
             img.save(out_path, **save_kwargs)
             individual_paths.append(out_path)
             after_gallery.append((_preview_on_white(img), out_name))
@@ -335,7 +336,7 @@ def process_batch(
             return None, f"Error on image {i + 1} ({name}): {exc}", [], [], []
 
     progress(1.0, desc="Packaging ZIP…")
-    zip_bytes = pack_to_zip(processed, fmt=fmt.upper(), webp_quality=int(quality))
+    zip_bytes = pack_to_zip(processed, fmt=fmt.upper())
     zip_path = os.path.join(tmpdir, "bluppi_output.zip")
     with open(zip_path, "wb") as f:
         f.write(zip_bytes)
@@ -388,13 +389,9 @@ def _build_ui() -> gr.Blocks:
                     height_in = gr.Number(label="Canvas height (px)", value=1080, minimum=1, precision=0)
 
                 gr.HTML(_label(_ICO_FORMAT, "Output format"), elem_classes=["bp-label-block"])
-                with gr.Row():
-                    fmt_radio = gr.Radio(
-                        ["WebP", "PNG"], label="Format", value="WebP"
-                    )
-                    quality_slider = gr.Slider(
-                        minimum=1, maximum=100, value=85, step=1, label="WebP quality"
-                    )
+                fmt_radio = gr.Radio(
+                    ["WebP", "PNG"], label="Format", value="WebP"
+                )
 
                 gr.HTML(_label(_ICO_ADJUST, "Image adjustments"), elem_classes=["bp-label-block"])
                 with gr.Row():
@@ -454,11 +451,6 @@ def _build_ui() -> gr.Blocks:
                 zip_out = gr.File(label="Full batch ZIP")
 
         # ── Event wiring ───────────────────────────────────────────────────
-        fmt_radio.change(
-            fn=lambda f: gr.update(visible=(f == "WebP")),
-            inputs=[fmt_radio],
-            outputs=[quality_slider],
-        )
 
         # Outputs shared by upload + clear handlers
         _upload_outs = [
@@ -554,12 +546,12 @@ def _build_ui() -> gr.Blocks:
         )
 
         def run(
-            files, width, height, fmt, quality,
+            files, width, height, fmt,
             brightness, contrast, saturation, sharpness,
             progress=gr.Progress(),
         ):
             zip_p, raw_status, before, after, individuals = process_batch(
-                files, width, height, fmt, quality,
+                files, width, height, fmt,
                 brightness, contrast, saturation, sharpness,
                 progress,
             )
@@ -579,7 +571,7 @@ def _build_ui() -> gr.Blocks:
         run_btn.click(
             fn=run,
             inputs=[
-                accumulated_files, width_in, height_in, fmt_radio, quality_slider,
+                accumulated_files, width_in, height_in, fmt_radio,
                 brightness_slider, contrast_slider, saturation_slider, sharpness_slider,
             ],
             outputs=[
