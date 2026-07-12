@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cadie-img"
+version = "0.1.0"
+requires-python = ">=3.9"
+dependencies = [
+    "gradio",
+    "rembg",
+    "pillow",
+]
+
+[project.scripts]
+cadie-img = "app:main"
+
+[tool.setuptools]
+py-modules = ["app"]
+
+[tool.setuptools.package-data]
+"*" = ["bluppimart.css"]
+
+[tool.setuptools.packages.find]
+include = ["core*"]
