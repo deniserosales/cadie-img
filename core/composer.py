@@ -1,6 +1,6 @@
 from PIL import Image
 
-from core.presets import BACKGROUND_COLOR, PADDING_RATIO
+from core.presets import PADDING_RATIO
 from core.shadow import generate_shadow
 
 
@@ -12,7 +12,7 @@ def center_on_canvas(
     """
     Crop to content bounding box, scale to fit within the padded area preserving
     aspect ratio, then composite a drop shadow and the piece onto a
-    BACKGROUND_COLOR canvas.
+    transparent canvas.
 
     The fit area is canvas dimensions * (1 - 2 * PADDING_RATIO), leaving
     PADDING_RATIO as a margin on each side. Returns RGBA of exactly
@@ -39,7 +39,7 @@ def center_on_canvas(
     piece_alpha = Image.new("L", (canvas_width, canvas_height), 0)
     piece_alpha.paste(image.split()[3], (x, y))
 
-    canvas = Image.new("RGBA", (canvas_width, canvas_height), (*BACKGROUND_COLOR, 255))
+    canvas = Image.new("RGBA", (canvas_width, canvas_height), (0, 0, 0, 0))
     canvas.alpha_composite(generate_shadow(piece_alpha))
     canvas.paste(image, (x, y), image)
     return canvas
