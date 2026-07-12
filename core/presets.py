@@ -1,6 +1,6 @@
 """Configurable constants for the Cadie Handmade visual style."""
 
-PADDING_RATIO = 0.12
+PADDING_RATIO = 0.24
 
 WEBP_QUALITY = 85
 WEBP_METHOD = 6
