@@ -13,35 +13,32 @@ def _get_session(model_name: str) -> object:
     return _sessions[model_name]
 
 
-def remove_background(
+def detect_content_bbox(
     image: Image.Image,
     model_name: str = "isnet-general-use",
     alpha_threshold: int = 128,
-) -> tuple[Image.Image, float]:
+) -> tuple[int, int, int, int] | None:
     """
-    Remove background using rembg and clean up the alpha mask.
+    Segment the piece with rembg and return the bounding box of its alpha
+    mask, in the original image's pixel coordinates. The segmentation
+    cutout itself is discarded — only its shape is used, so the original
+    photo's background is never altered.
 
-    alpha_threshold: pixels with alpha < this value become fully transparent.
-                     Eliminates faint shadow halos left by the model (default 128).
+    alpha_threshold: pixels with alpha below this value are treated as
+    background, filtering out faint halos left by the segmentation model.
 
-    Returns (result_image, content_width_ratio) where content_width_ratio is the
-    width of the segmented content bbox divided by the original image width.
+    Returns (left, upper, right, lower), or None if nothing was segmented.
     """
     session = _get_session(model_name)
 
     buf = io.BytesIO()
     image.save(buf, format="PNG")
     result_bytes = remove(buf.getvalue(), session=session)
-    result = Image.open(io.BytesIO(result_bytes)).convert("RGBA")
+    alpha = Image.open(io.BytesIO(result_bytes)).convert("RGBA").split()[3]
 
-    # Alpha threshold: zero out semi-transparent shadows and halos
     if alpha_threshold > 0:
-        r, g, b, a = result.split()
-        a_arr = np.array(a, dtype=np.uint8)
+        a_arr = np.array(alpha, dtype=np.uint8)
         a_arr[a_arr < alpha_threshold] = 0
-        result = Image.merge("RGBA", (r, g, b, Image.fromarray(a_arr)))
+        alpha = Image.fromarray(a_arr)
 
-    bbox = result.getbbox()
-    content_width_ratio = (bbox[2] - bbox[0]) / image.width if bbox else 0.0
-
-    return result, content_width_ratio
+    return alpha.getbbox()

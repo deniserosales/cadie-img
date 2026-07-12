@@ -3,41 +3,47 @@ from PIL import Image
 from core.presets import PADDING_RATIO
 
 
-def center_on_canvas(
+def crop_and_frame(
     image: Image.Image,
-    canvas_width: int = 1080,
-    canvas_height: int = 1080,
+    bbox: tuple[int, int, int, int] | None,
+    canvas_size: int = 1080,
 ) -> Image.Image:
     """
-    Crop to content bounding box, scale to fit within the padded area preserving
-    aspect ratio, then paste centered on a transparent canvas.
+    Crop the original image to a square region centered on bbox with a
+    PADDING_RATIO margin on each side, then resize to
+    (canvas_size, canvas_size). Operates on the original photo directly —
+    the background is preserved exactly as shot, never removed or replaced.
 
-    The fit area is canvas dimensions * (1 - 2 * PADDING_RATIO), leaving
-    PADDING_RATIO as a margin on each side. Returns RGBA of exactly
-    (canvas_width, canvas_height).
+    If bbox is None (nothing segmented), the whole image is treated as the
+    content. If the ideal square would spill past the image edges, the crop
+    is shifted inward to fit — it is never shrunk below what the source
+    photo allows, and no pixels are invented beyond the frame.
     """
-    image = image.convert("RGBA")
+    img_w, img_h = image.size
 
-    # Compute the bbox from the alpha channel alone (not image.getbbox()),
-    # which requires every channel to be zero unless alpha_only defaults to
-    # True. Background pixels routinely keep non-zero RGB under alpha=0, so
-    # relying on that default would silently bound the whole photo instead
-    # of just the visible piece.
-    bbox = image.split()[3].getbbox()
-    if bbox:
-        image = image.crop(bbox)
+    if bbox is None:
+        bbox = (0, 0, img_w, img_h)
+    left, upper, right, lower = bbox
+
+    content_w = right - left
+    content_h = lower - upper
+    cx = (left + right) / 2
+    cy = (upper + lower) / 2
 
     fit_fraction = 1 - 2 * PADDING_RATIO
-    max_w = round(canvas_width * fit_fraction)
-    max_h = round(canvas_height * fit_fraction)
+    side = max(content_w, content_h) / fit_fraction
+    # The photo itself caps how much margin is available — cap instead of
+    # inventing pixels beyond its edges.
+    side = min(side, img_w, img_h)
 
-    scale = min(max_w / image.width, max_h / image.height)
-    new_w = round(image.width * scale)
-    new_h = round(image.height * scale)
-    image = image.resize((new_w, new_h), Image.LANCZOS)
+    crop_left = max(0, min(cx - side / 2, img_w - side))
+    crop_upper = max(0, min(cy - side / 2, img_h - side))
+    crop_box = (
+        round(crop_left),
+        round(crop_upper),
+        round(crop_left + side),
+        round(crop_upper + side),
+    )
 
-    canvas = Image.new("RGBA", (canvas_width, canvas_height), (0, 0, 0, 0))
-    x = (canvas_width - new_w) // 2
-    y = (canvas_height - new_h) // 2
-    canvas.paste(image, (x, y), image)
-    return canvas
+    cropped = image.crop(crop_box)
+    return cropped.resize((canvas_size, canvas_size), Image.LANCZOS)

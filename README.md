@@ -1,8 +1,9 @@
 # cadie-img
 
-Standalone image processing tool for Cadie Handmade product photos. Removes
-the background, centers the piece on a 1080×1080 canvas, and exports as WebP
-or PNG — individually or as a batch.
+Standalone image processing tool for Cadie Handmade product photos. Detects
+the piece with `rembg`, reframes it on a 1080×1080 square using its
+*original* background (never removed or replaced), and exports as WebP or
+PNG — individually or as a batch.
 
 ## Requirements
 
@@ -32,11 +33,10 @@ This opens the interface in your browser. The flow is:
 
 1. **Upload images** — drop or select one or more product photos; they queue
    up as thumbnails.
-2. **Adjust controls** — canvas size, output format (WebP/PNG), and image
-   adjustments (brightness, contrast, saturation, sharpness) with a live
-   preview.
-3. **Process batch** — runs background removal and centering on every queued
-   image, then download the results individually or as a single ZIP.
+2. **Adjust controls** — output format (WebP/PNG) and image adjustments
+   (brightness, contrast, saturation, sharpness) with a live preview.
+3. **Process batch** — reframes every queued image on its own original
+   background, then download the results individually or as a single ZIP.
 
 ## Architecture
 
@@ -44,10 +44,12 @@ This opens the interface in your browser. The flow is:
 preview, and batch-processing events. Image processing is split into
 single-purpose modules under `core/`:
 
-- `background_remover.py` — removes the background via `rembg` and cleans up
-  alpha-mask edges.
-- `composer.py` — crops to content and centers the piece on a padded,
-  transparent canvas.
+- `background_remover.py` — runs `rembg` purely to locate the piece and
+  returns the bounding box of its alpha mask; the segmentation cutout
+  itself is discarded.
+- `composer.py` — crops the *original* photo to a square region around
+  that bounding box with a `PADDING_RATIO` margin, then resizes to
+  1080×1080. The photo's real background is preserved untouched.
 - `resizer.py` — resizes an image to target dimensions, with or without
   preserving aspect ratio.
 - `enhancer.py` — applies brightness/contrast/saturation/sharpness
