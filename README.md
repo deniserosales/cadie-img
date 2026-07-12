@@ -46,15 +46,18 @@ single-purpose modules under `core/`:
 
 - `background_remover.py` — removes the background via `rembg` and cleans up
   alpha-mask edges.
-- `composer.py` — crops to content and centers the piece on a padded canvas
-  filled with the Cadie background color.
+- `composer.py` — crops to content, centers the piece on a padded canvas
+  filled with the Cadie background color, and composites its drop shadow
+  underneath.
+- `shadow.py` — generates an RGBA drop-shadow layer from a piece's alpha
+  mask.
 - `resizer.py` — resizes an image to target dimensions, with or without
   preserving aspect ratio.
 - `enhancer.py` — applies brightness/contrast/saturation/sharpness
   adjustments.
 - `zipper.py` — packs processed images into a downloadable ZIP archive.
-- `presets.py` — visual style constants (background color, padding ratio)
-  shared by the pipeline above.
+- `presets.py` — visual style constants (background color, padding ratio,
+  shadow offset/blur/opacity) shared by the pipeline above.
 
 ## Project context
 
