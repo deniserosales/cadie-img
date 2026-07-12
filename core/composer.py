@@ -18,7 +18,12 @@ def center_on_canvas(
     """
     image = image.convert("RGBA")
 
-    bbox = image.getbbox()
+    # Compute the bbox from the alpha channel alone (not image.getbbox()),
+    # which requires every channel to be zero unless alpha_only defaults to
+    # True. Background pixels routinely keep non-zero RGB under alpha=0, so
+    # relying on that default would silently bound the whole photo instead
+    # of just the visible piece.
+    bbox = image.split()[3].getbbox()
     if bbox:
         image = image.crop(bbox)
 
